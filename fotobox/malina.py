@@ -2,6 +2,10 @@ from socket import *
 
 import thread
 
+from subprocess import call
+import subprocess, threading
+
+# tutorial s tlacitkem http://razzpisampler.oreilly.com/ch07.html
 import RPi.GPIO as GPIO
 import time
 
@@ -19,7 +23,7 @@ while True:
 stav = False
 
 host = '0.0.0.0'
-port = 4321
+port = 4322
 buf = 1024
 
 addr = (host, port)
@@ -29,6 +33,32 @@ serversocket.bind(addr)
 serversocket.listen(2)
 
 clients = [serversocket]
+
+
+def runCmdWithTimeout(cmd, timeout):
+    process = None
+    vratit = 0
+
+    def target():
+        print 'Thread started'
+        process = subprocess.Popen(cmd, shell=True)
+        process.communicate()
+        print 'Thread finished'
+        return vratit
+
+    thread = threading.Thread(target=target)
+    thread.start()
+
+    thread.join(timeout)
+    if thread.isAlive():
+        print 'Terminating process'
+        vratit = 1
+        process.terminate()
+        thread.join()
+        return vratit
+    return vratit
+    #print process.returncode
+
 
 def handler(clientsocket, clientaddr):
     global stav
@@ -42,6 +72,38 @@ def handler(clientsocket, clientaddr):
                 clientsocket.send("ZAPNUTO\n")
             else:
                 clientsocket.send("VYPNUTO\n")
+
+        elif "nahled" in data:
+            '''
+            prikaz = "gphoto2 --set-config autofocusdrive=1 --capture-image-and-download --force-overwrite --filename FOTKA.JPG"
+            print prikaz
+            if runCmdWithTimeout(cmd=prikaz, timeout=20) == 0:
+                print "nahled ok"
+                prikaz2 = "convert FOTKA.JPG -quality 70 -resize 640x480 NAHLED.JPG"
+                print prikaz2
+                if runCmdWithTimeout(cmd=prikaz2, timeout=15) == 0:
+                    print "nahled rozliseni ok"
+
+                    soubor = "NAHLED.JPG"
+                    bytes = open(soubor).read()
+                    print len(bytes)
+                    clientsocket.send(bytes)
+
+                else:
+                    print "vyfoceno rozliseni chyba"
+            else:
+                # FIXME: cely program spadne!
+                print "nahled chyba"
+            '''
+            soubor = "NAHLED.JPG"
+            bytes = open(soubor).read()
+            print len(bytes)
+            clientsocket.send(bytes)
+
+        elif "fotka_ok" in data:
+            # poslat fotku na server
+            pass
+
         else:
             print data
             msg = "ECHO: %s" % data
@@ -56,18 +118,15 @@ def tlacitko():
         if GPIO.input(18) == False:
             print 'Button Pressed'
             stav = True
-            '''
             for i in clients:
                 if i is not serversocket:
                     i.send("ZAPNUTO\n")
-            '''
         else:
             stav = False
-            '''
             for i in clients:
                 if i is not serversocket:
                     i.send("VYPNUTO\n")
-            '''
+
 
         time.sleep(0.5)
 
