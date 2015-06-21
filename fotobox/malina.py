@@ -4,6 +4,8 @@ import thread
 
 from subprocess import call
 import subprocess, threading
+import sys
+import signal
 
 # tutorial s tlacitkem http://razzpisampler.oreilly.com/ch07.html
 import RPi.GPIO as GPIO
@@ -33,6 +35,14 @@ serversocket.bind(addr)
 serversocket.listen(2)
 
 clients = [serversocket]
+
+# pokud uzivatel zmackne ctrl+c, zavre se server-socket
+# jinak se pri spusteni objovalo "Address already in use"
+def signal_handler(signal, frame):
+	print('You pressed Ctrl+C!')
+	serversocket.close()
+	sys.exit(0)
+signal.signal(signal.SIGINT, signal_handler)
 
 
 def runCmdWithTimeout(cmd, timeout):
@@ -140,4 +150,4 @@ while True:
     clients.append(clientsocket)
     thread.start_new_thread(handler, (clientsocket, clientaddr))
 
-serversocket.close()
+#serversocket.close() # to se nikdy nemuze stat
